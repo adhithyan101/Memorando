@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check auth state
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns existing document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profile rule
+    match /users/{userId} {
+      allow read, delete: if isOwner(resource.data.uid);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.uid;
+      allow update: if isOwner(resource.data.uid) && request.resource.data.uid == resource.data.uid;
+    }
+
+    // People collection
+    match /people/{personId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+    }
+
+    // Memories collection
+    match /memories/{memoryId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+
+      // Media subcollection: memories/{memoryId}/media/{mediaId}
+      match /media/{mediaId} {
+        allow read, delete: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.userId);
+        allow create, update: if isAuthenticated() && request.auth.uid == get(/databases/$(database)/documents/memories/$(memoryId)).data.userId;
+      }
+
+      // Voice notes subcollection: memories/{memoryId}/voiceNotes/{noteId}
+      match /voiceNotes/{noteId} {
+        allow read, delete: if isOwner(get(/databases/$(database)/documents/memories/$(memoryId)).data.userId);
+        allow create, update: if isAuthenticated() && request.auth.uid == get(/databases/$(database)/documents/memories/$(memoryId)).data.userId;
+      }
+    }
+
+    // Time Capsules collection
+    match /memoryCapsules/{capsuleId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+    }
+
+    // Future Letters collection
+    match /futureLetters/{letterId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+    }
+
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read, delete: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow update: if isOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+    }
+
+  }
+}

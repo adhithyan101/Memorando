@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-light: #FFF8F2;
+    --card-light: #FFFDF9;
+    --terracotta: #D97757;
+    --sage: #A8C3A0;
+    --peach: #F4B8A8;
+    --gold: #E7C57B;
+    --charcoal: #3B3B3B;
+    --slate: #6E6E6E;
+    --sand: #ECE4DA;
+  }
+
+  body {
+    background-color: var(--bg-light);
+    color: var(--charcoal);
+    font-family: 'Inter', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, .font-serif-title {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+}
+
+/* Custom Scrollbar for subtle album feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(217, 119, 87, 0.2);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 119, 87, 0.4);
+}
+
+/* Glassmorphic subtle overlay */
+.glass-panel {
+  background: rgba(255, 253, 249, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dark .glass-panel {
+  background: rgba(33, 30, 27, 0.85);
+}
