@@ -39,12 +39,14 @@ export const PersonFormModal: React.FC<PersonFormModalProps> = ({
     if (!file) return;
 
     try {
+      setFormError(null);
       setUploading(true);
       setUploadProgress(0);
       const media = await uploadToCloudinary(file, 'image', (percent) => setUploadProgress(percent));
       setProfilePhotoUrl(media.secureUrl);
     } catch (err: any) {
-      setFormError('Photo upload failed. Please try again.');
+      console.error('Photo upload error:', err);
+      setFormError(err.message || 'Photo upload failed. Please try again.');
     } finally {
       setUploading(false);
     }

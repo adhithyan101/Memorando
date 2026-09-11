@@ -27,7 +27,7 @@ export interface Person {
 
 export interface MediaItem {
   id: string;
-  publicId: string;
+  publicId?: string;
   secureUrl: string;
   resourceType: 'image' | 'video' | 'raw';
   format?: string;
@@ -39,7 +39,7 @@ export interface MediaItem {
 
 export interface VoiceNote {
   id: string;
-  publicId: string;
+  publicId?: string;
   secureUrl: string;
   duration: number; // in seconds
   createdAt: string;
