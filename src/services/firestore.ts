@@ -188,10 +188,29 @@ export const getMemoriesForPerson = async (userId: string, personId: string): Pr
   }
 };
 
+// Helper to remove undefined properties from Firestore payloads so addDoc/updateDoc never throw invalid data error
+const sanitizeFirestorePayload = (obj: Record<string, any>): Record<string, any> => {
+  const sanitized: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      if (value && typeof value === 'object' && !Array.isArray(value) && !(value instanceof GeoPoint)) {
+        sanitized[key] = sanitizeFirestorePayload(value);
+      } else {
+        sanitized[key] = value;
+      }
+    }
+  }
+  return sanitized;
+};
+
 export const createMemory = async (
   userId: string, 
   data: Omit<Memory, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
 ): Promise<string> => {
+  if (import.meta.env.DEV) {
+    console.log('[Memorando] Firestore memory creation started for Auth UID:', userId);
+  }
+
   const { media, voiceNote, location, ...rest } = data;
 
   // Convert location coordinates to Firestore GeoPoint if lat/lng available
@@ -199,13 +218,12 @@ export const createMemory = async (
   if (location && location.latitude !== undefined && location.longitude !== undefined) {
     locationPayload = {
       name: location.name,
-      address: location.address,
+      address: location.address || undefined,
       coordinates: new GeoPoint(location.latitude, location.longitude),
     };
   }
 
-  // Create main memory document
-  const docRef = await addDoc(collection(db, 'memories'), {
+  const payload = sanitizeFirestorePayload({
     ...rest,
     location: locationPayload || null,
     userId,
@@ -214,34 +232,57 @@ export const createMemory = async (
     serverCreatedAt: serverTimestamp(),
   });
 
-  // Save media items in subcollection: memories/{memoryId}/media
-  if (media && media.length > 0) {
-    for (const item of media) {
-      await addDoc(collection(db, 'memories', docRef.id, 'media'), {
-        publicId: item.publicId,
-        secureUrl: item.secureUrl,
-        resourceType: item.resourceType,
-        format: item.format || null,
-        width: item.width || null,
-        height: item.height || null,
-        duration: item.duration || null,
-        createdAt: new Date().toISOString(),
-      });
+  if (import.meta.env.DEV) {
+    console.log('[Memorando] Memory payload:', payload);
+  }
+
+  try {
+    // Create main memory document
+    const docRef = await addDoc(collection(db, 'memories'), payload);
+    if (import.meta.env.DEV) {
+      console.log('[Memorando] Firestore memory created. Memory ID:', docRef.id);
     }
-  }
 
-  // Save voice note in subcollection: memories/{memoryId}/voiceNotes
-  if (voiceNote) {
-    await addDoc(collection(db, 'memories', docRef.id, 'voiceNotes'), {
-      publicId: voiceNote.publicId,
-      secureUrl: voiceNote.secureUrl,
-      duration: voiceNote.duration,
-      transcript: voiceNote.transcript || null,
-      createdAt: new Date().toISOString(),
-    });
-  }
+    // Save media items in subcollection: memories/{memoryId}/media
+    if (media && media.length > 0) {
+      if (import.meta.env.DEV) {
+        console.log('[Memorando] Saving media items to subcollection memories/' + docRef.id + '/media');
+      }
+      for (const item of media) {
+        await addDoc(collection(db, 'memories', docRef.id, 'media'), sanitizeFirestorePayload({
+          publicId: item.publicId || null,
+          secureUrl: item.secureUrl,
+          resourceType: item.resourceType || 'image',
+          format: item.format || null,
+          width: item.width || null,
+          height: item.height || null,
+          duration: item.duration || null,
+          createdAt: new Date().toISOString(),
+        }));
+      }
+    }
 
-  return docRef.id;
+    // Save voice note in subcollection: memories/{memoryId}/voiceNotes
+    if (voiceNote) {
+      if (import.meta.env.DEV) {
+        console.log('[Memorando] Saving voice note to subcollection memories/' + docRef.id + '/voiceNotes');
+      }
+      await addDoc(collection(db, 'memories', docRef.id, 'voiceNotes'), sanitizeFirestorePayload({
+        publicId: voiceNote.publicId || null,
+        secureUrl: voiceNote.secureUrl,
+        duration: voiceNote.duration || 0,
+        transcript: voiceNote.transcript || null,
+        createdAt: new Date().toISOString(),
+      }));
+    }
+
+    return docRef.id;
+  } catch (err: any) {
+    if (import.meta.env.DEV) {
+      console.error('[Memorando] MEMORY SAVE FAILED in createMemory:', `code=${err.code || 'unknown'} message=${err.message}`, err);
+    }
+    throw err;
+  }
 };
 
 export const updateMemory = async (memoryId: string, data: Partial<Memory>): Promise<void> => {
@@ -251,17 +292,19 @@ export const updateMemory = async (memoryId: string, data: Partial<Memory>): Pro
   if (location && location.latitude !== undefined && location.longitude !== undefined) {
     locationPayload = {
       name: location.name,
-      address: location.address,
+      address: location.address || undefined,
       coordinates: new GeoPoint(location.latitude, location.longitude),
     };
   }
 
-  const docRef = doc(db, 'memories', memoryId);
-  await updateDoc(docRef, {
+  const payload = sanitizeFirestorePayload({
     ...rest,
     ...(locationPayload !== undefined ? { location: locationPayload } : {}),
     updatedAt: new Date().toISOString(),
   });
+
+  const docRef = doc(db, 'memories', memoryId);
+  await updateDoc(docRef, payload);
 };
 
 export const deleteMemory = async (memoryId: string): Promise<void> => {

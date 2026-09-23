@@ -137,21 +137,54 @@ export const CreateMemoryModal: React.FC<CreateMemoryModalProps> = ({
     }
   };
 
+  const formRef = React.useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (formError && formRef.current) {
+      formRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [formError]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (import.meta.env.DEV) {
+      console.log('[Memorando] Preserve Memory clicked');
+      console.log('[Memorando] Form submit triggered');
+    }
     setFormError(null);
 
+    if (!currentUser) {
+      if (import.meta.env.DEV) {
+        console.error('[Memorando] Auth UID missing! User is not logged in.');
+      }
+      setFormError('You must be signed in to save a memory. Please sign in again.');
+      return;
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('[Memorando] Auth UID:', currentUser.uid);
+      console.log('[Memorando] Selected person:', selectedPersonIds);
+    }
+
     if (!selectedPersonIds.length) {
+      if (import.meta.env.DEV) {
+        console.warn('[Memorando] Validation failed: missing person selection');
+      }
       setFormError('Please select at least one person associated with this memory.');
       return;
     }
 
     if (!date) {
+      if (import.meta.env.DEV) {
+        console.warn('[Memorando] Validation failed: missing date');
+      }
       setFormError('Please select a date for this memory.');
       return;
     }
 
-    if (!currentUser) return;
+    if (import.meta.env.DEV) {
+      console.log('[Memorando] Memory validation passed');
+    }
 
     try {
       setSubmitting(true);
@@ -170,16 +203,37 @@ export const CreateMemoryModal: React.FC<CreateMemoryModalProps> = ({
         music: musicTitle.trim() ? { title: musicTitle.trim(), artist: musicArtist.trim() || undefined } : undefined,
       };
 
+      if (import.meta.env.DEV) {
+        console.log('[Memorando] Memory payload:', memoryPayload);
+        console.log('[Memorando] Firestore memory creation started');
+      }
+
       if (memoryToEdit) {
         await updateMemory(memoryToEdit.id, memoryPayload);
+        if (import.meta.env.DEV) {
+          console.log('[Memorando] Memory updated successfully');
+        }
       } else {
-        await createMemory(currentUser.uid, memoryPayload);
+        const newMemoryId = await createMemory(currentUser.uid, memoryPayload);
+        if (import.meta.env.DEV) {
+          console.log('[Memorando] Firestore memory created. Memory ID:', newMemoryId);
+        }
+      }
+
+      if (import.meta.env.DEV) {
+        console.log('[Memorando] Modal closing');
       }
 
       if (onSuccess) onSuccess();
       onClose();
     } catch (err: any) {
-      setFormError(err.message || 'Failed to preserve memory.');
+      if (import.meta.env.DEV) {
+        console.error('[Memorando] MEMORY SAVE FAILED');
+        console.error('[Memorando] Error code:', err.code || 'unknown');
+        console.error('[Memorando] Error message:', err.message);
+        if (err.stack) console.error('[Memorando] Error stack:', err.stack);
+      }
+      setFormError(err.message || 'Failed to preserve memory. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -224,7 +278,7 @@ export const CreateMemoryModal: React.FC<CreateMemoryModalProps> = ({
         </div>
 
         {/* FORM CONTENT */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto">
+        <form ref={formRef} onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto">
           
           {formError && (
             <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 text-xs text-red-600 dark:text-red-300">
