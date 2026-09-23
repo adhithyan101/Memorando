@@ -14,9 +14,8 @@ service cloud.firestore {
 
     // User profile rule
     match /users/{userId} {
-      allow read, delete: if isOwner(resource.data.uid);
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.uid;
-      allow update: if isOwner(resource.data.uid) && request.resource.data.uid == resource.data.uid;
+      allow read, update, delete: if isAuthenticated() && (request.auth.uid == userId || (resource != null && request.auth.uid == resource.data.uid));
+      allow create: if isAuthenticated() && (request.auth.uid == userId || request.auth.uid == request.resource.data.uid);
     }
 
     // People collection

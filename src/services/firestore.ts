@@ -29,12 +29,31 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
 
 export const updateUserProfile = async (userId: string, data: Partial<UserProfile>): Promise<void> => {
   if (!userId) return;
-  const docRef = doc(db, 'users', userId);
-  const payload = sanitizeFirestorePayload({
-    ...data,
-    updatedAt: new Date().toISOString(),
-  });
-  await updateDoc(docRef, payload);
+  if (import.meta.env.DEV) {
+    console.log('[Memorando] Profile save started');
+    console.log('[Memorando] Auth UID:', userId);
+    console.log('[Memorando] Profile document path: users/' + userId);
+    console.log('[Memorando] Fields being updated:', data);
+  }
+  try {
+    const docRef = doc(db, 'users', userId);
+    const payload = sanitizeFirestorePayload({
+      ...data,
+      uid: userId,
+      updatedAt: new Date().toISOString(),
+    });
+    await updateDoc(docRef, payload);
+    if (import.meta.env.DEV) {
+      console.log('[Memorando] Firestore profile update successful');
+    }
+  } catch (err: any) {
+    if (import.meta.env.DEV) {
+      console.error('[Memorando] Profile update failed');
+      console.error('[Memorando] Firebase error code:', err.code || 'unknown');
+      console.error('[Memorando] Firebase error message:', err.message);
+    }
+    throw err;
+  }
 };
 
 // ==========================================

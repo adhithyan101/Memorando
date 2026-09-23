@@ -101,8 +101,18 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ onClose, onS
     }
 
     if (!currentUser) {
+      if (import.meta.env.DEV) {
+        console.error('[Memorando] Current Firebase UID missing');
+      }
       setFormError('You must be signed in to update your profile.');
       return;
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('[Memorando] Profile save started');
+      console.log('[Memorando] Current Firebase UID:', currentUser.uid);
+      console.log('[Memorando] Profile document path: users/' + currentUser.uid);
+      console.log('[Memorando] Fields being updated:', { displayName, username, bio, birthday, photoURL });
     }
 
     try {
@@ -117,6 +127,10 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ onClose, onS
         photoURL: photoURL,
       });
 
+      if (import.meta.env.DEV) {
+        console.log('[Memorando] Firestore profile update successful');
+      }
+
       setSuccessMsg('Profile updated successfully!');
 
       setTimeout(() => {
@@ -125,7 +139,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ onClose, onS
       }, 600);
     } catch (err: any) {
       if (import.meta.env.DEV) {
-        console.error('[EditProfileModal] Profile update error:', err);
+        console.error('[Memorando] Profile update failed');
+        console.error('[Memorando] Firebase error code:', err.code || 'unknown');
+        console.error('[Memorando] Firebase error message:', err.message);
       }
       setFormError(err.message || "Couldn't save your profile changes. Please try again.");
     } finally {
