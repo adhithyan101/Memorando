@@ -21,13 +21,33 @@ import { Person, Memory, MemoryCapsule, FutureLetter, AppNotification, MediaItem
 
 export const getPeople = async (userId: string): Promise<Person[]> => {
   if (!userId) return [];
-  const q = query(
-    collection(db, 'people'),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Person));
+  if (import.meta.env.DEV) {
+    console.log('[Memorando] Auth user UID for getPeople:', userId);
+    console.log('[Memorando] People query path: collection("people").where("userId", "==", "' + userId + '")');
+  }
+  try {
+    const q = query(
+      collection(db, 'people'),
+      where('userId', '==', userId)
+    );
+    const snap = await getDocs(q);
+    const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Person));
+    items.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
+    if (import.meta.env.DEV) {
+      console.log('[Memorando] People query returned:', snap.docs.length, 'documents');
+      console.log('[Memorando] People data:', items);
+    }
+    return items;
+  } catch (err: any) {
+    if (import.meta.env.DEV) {
+      console.error('[Memorando] Firestore error in getPeople:', `code=${err.code || 'unknown'} message=${err.message}`);
+    }
+    throw err;
+  }
 };
 
 export const getPersonById = async (personId: string): Promise<Person | null> => {
@@ -39,14 +59,28 @@ export const getPersonById = async (personId: string): Promise<Person | null> =>
 };
 
 export const createPerson = async (userId: string, data: Omit<Person, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<string> => {
-  const docRef = await addDoc(collection(db, 'people'), {
-    ...data,
-    userId,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    serverCreatedAt: serverTimestamp(),
-  });
-  return docRef.id;
+  if (import.meta.env.DEV) {
+    console.log('[Memorando] Auth user UID for createPerson:', userId);
+    console.log('[Memorando] Creating person with data:', data);
+  }
+  try {
+    const docRef = await addDoc(collection(db, 'people'), {
+      ...data,
+      userId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      serverCreatedAt: serverTimestamp(),
+    });
+    if (import.meta.env.DEV) {
+      console.log('[Memorando] Firestore person document created:', docRef.id);
+    }
+    return docRef.id;
+  } catch (err: any) {
+    if (import.meta.env.DEV) {
+      console.error('[Memorando] Firestore error in createPerson:', `code=${err.code || 'unknown'} message=${err.message}`);
+    }
+    throw err;
+  }
 };
 
 export const updatePerson = async (personId: string, data: Partial<Person>): Promise<void> => {
@@ -96,16 +130,28 @@ const hydrateMemoryMediaAndVoice = async (memoryDocId: string, memoryData: any):
 
 export const getMemories = async (userId: string): Promise<Memory[]> => {
   if (!userId) return [];
-  const q = query(
-    collection(db, 'memories'),
-    where('userId', '==', userId),
-    orderBy('memoryDate', 'desc')
-  );
-  const snap = await getDocs(q);
-  
-  return Promise.all(
-    snap.docs.map(d => hydrateMemoryMediaAndVoice(d.id, d.data()))
-  );
+  try {
+    const q = query(
+      collection(db, 'memories'),
+      where('userId', '==', userId)
+    );
+    const snap = await getDocs(q);
+    
+    const items = await Promise.all(
+      snap.docs.map(d => hydrateMemoryMediaAndVoice(d.id, d.data()))
+    );
+    items.sort((a, b) => {
+      const timeA = a.memoryDate ? new Date(a.memoryDate).getTime() : 0;
+      const timeB = b.memoryDate ? new Date(b.memoryDate).getTime() : 0;
+      return timeB - timeA;
+    });
+    return items;
+  } catch (err: any) {
+    if (import.meta.env.DEV) {
+      console.error('[Memorando] Firestore error in getMemories:', `code=${err.code || 'unknown'} message=${err.message}`);
+    }
+    return [];
+  }
 };
 
 export const getMemoryById = async (memoryId: string): Promise<Memory | null> => {
@@ -118,16 +164,28 @@ export const getMemoryById = async (memoryId: string): Promise<Memory | null> =>
 
 export const getMemoriesForPerson = async (userId: string, personId: string): Promise<Memory[]> => {
   if (!userId || !personId) return [];
-  const q = query(
-    collection(db, 'memories'),
-    where('userId', '==', userId),
-    where('personIds', 'array-contains', personId),
-    orderBy('memoryDate', 'desc')
-  );
-  const snap = await getDocs(q);
-  return Promise.all(
-    snap.docs.map(d => hydrateMemoryMediaAndVoice(d.id, d.data()))
-  );
+  try {
+    const q = query(
+      collection(db, 'memories'),
+      where('userId', '==', userId),
+      where('personIds', 'array-contains', personId)
+    );
+    const snap = await getDocs(q);
+    const items = await Promise.all(
+      snap.docs.map(d => hydrateMemoryMediaAndVoice(d.id, d.data()))
+    );
+    items.sort((a, b) => {
+      const timeA = a.memoryDate ? new Date(a.memoryDate).getTime() : 0;
+      const timeB = b.memoryDate ? new Date(b.memoryDate).getTime() : 0;
+      return timeB - timeA;
+    });
+    return items;
+  } catch (err: any) {
+    if (import.meta.env.DEV) {
+      console.error('[Memorando] Firestore error in getMemoriesForPerson:', `code=${err.code || 'unknown'} message=${err.message}`);
+    }
+    return [];
+  }
 };
 
 export const createMemory = async (
@@ -225,13 +283,21 @@ export const toggleFavoriteMemory = async (memoryId: string, currentStatus: bool
 
 export const getMemoryCapsules = async (userId: string): Promise<MemoryCapsule[]> => {
   if (!userId) return [];
-  const q = query(
-    collection(db, 'memoryCapsules'),
-    where('userId', '==', userId),
-    orderBy('unlockDate', 'asc')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as MemoryCapsule));
+  try {
+    const q = query(
+      collection(db, 'memoryCapsules'),
+      where('userId', '==', userId)
+    );
+    const snap = await getDocs(q);
+    const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as MemoryCapsule));
+    items.sort((a, b) => (a.unlockDate || '').localeCompare(b.unlockDate || ''));
+    return items;
+  } catch (err: any) {
+    if (import.meta.env.DEV) {
+      console.error('[Memorando] Firestore error in getMemoryCapsules:', `code=${err.code || 'unknown'} message=${err.message}`);
+    }
+    return [];
+  }
 };
 
 export const createMemoryCapsule = async (userId: string, data: Omit<MemoryCapsule, 'id' | 'userId' | 'createdAt'>): Promise<string> => {
@@ -249,13 +315,21 @@ export const createMemoryCapsule = async (userId: string, data: Omit<MemoryCapsu
 
 export const getFutureLetters = async (userId: string): Promise<FutureLetter[]> => {
   if (!userId) return [];
-  const q = query(
-    collection(db, 'futureLetters'),
-    where('userId', '==', userId),
-    orderBy('unlockDate', 'asc')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FutureLetter));
+  try {
+    const q = query(
+      collection(db, 'futureLetters'),
+      where('userId', '==', userId)
+    );
+    const snap = await getDocs(q);
+    const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FutureLetter));
+    items.sort((a, b) => (a.unlockDate || '').localeCompare(b.unlockDate || ''));
+    return items;
+  } catch (err: any) {
+    if (import.meta.env.DEV) {
+      console.error('[Memorando] Firestore error in getFutureLetters:', `code=${err.code || 'unknown'} message=${err.message}`);
+    }
+    return [];
+  }
 };
 
 export const createFutureLetter = async (userId: string, data: Omit<FutureLetter, 'id' | 'userId' | 'createdAt'>): Promise<string> => {
@@ -273,11 +347,19 @@ export const createFutureLetter = async (userId: string, data: Omit<FutureLetter
 
 export const getNotifications = async (userId: string): Promise<AppNotification[]> => {
   if (!userId) return [];
-  const q = query(
-    collection(db, 'notifications'),
-    where('userId', '==', userId),
-    orderBy('createdAt', 'desc')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppNotification));
+  try {
+    const q = query(
+      collection(db, 'notifications'),
+      where('userId', '==', userId)
+    );
+    const snap = await getDocs(q);
+    const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppNotification));
+    items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    return items;
+  } catch (err: any) {
+    if (import.meta.env.DEV) {
+      console.error('[Memorando] Firestore error in getNotifications:', `code=${err.code || 'unknown'} message=${err.message}`);
+    }
+    return [];
+  }
 };

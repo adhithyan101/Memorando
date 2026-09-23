@@ -21,14 +21,36 @@ export const PeoplePage: React.FC = () => {
     if (!currentUser) return;
     try {
       setLoading(true);
+      if (import.meta.env.DEV) {
+        console.log('[Memorando] Loading people... Auth user UID:', currentUser.uid);
+      }
       const [fetchedPeople, fetchedMemories] = await Promise.all([
-        getPeople(currentUser.uid),
-        getMemories(currentUser.uid)
+        getPeople(currentUser.uid).catch(err => {
+          if (import.meta.env.DEV) {
+            console.error('[Memorando] Firestore error code=' + (err.code || 'unknown') + ' message=' + err.message);
+          }
+          return [];
+        }),
+        getMemories(currentUser.uid).catch(err => {
+          if (import.meta.env.DEV) {
+            console.warn('[Memorando] Non-critical error loading memories:', err);
+          }
+          return [];
+        })
       ]);
+      if (import.meta.env.DEV) {
+        console.log('[Memorando] People query returned:', fetchedPeople.length, 'documents');
+        console.log('[Memorando] People data:', fetchedPeople);
+      }
       setPeople(fetchedPeople);
       setMemories(fetchedMemories);
-    } catch (err) {
-      console.error(err);
+      if (import.meta.env.DEV) {
+        console.log('[Memorando] People state updated:', fetchedPeople.length, 'people');
+      }
+    } catch (err: any) {
+      if (import.meta.env.DEV) {
+        console.error('[Memorando] Firestore error: code=' + (err.code || 'unknown') + ' message=' + err.message);
+      }
     } finally {
       setLoading(false);
     }
