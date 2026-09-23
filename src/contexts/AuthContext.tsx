@@ -112,7 +112,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await fetchOrCreateUserProfile(res.user);
       }
     } catch (err: any) {
-      setError(err.message || 'Google sign in was cancelled or failed.');
+      if (import.meta.env.DEV) {
+        console.error('[AuthContext] Google Sign-In Error:', err);
+      }
+      if (err.code === 'auth/unauthorized-domain') {
+        const currentDomain = window.location.hostname;
+        setError(
+          `Domain Unauthorized (${currentDomain}): Please add '${currentDomain}' in Firebase Console -> Authentication -> Settings -> Authorized domains.`
+        );
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setError(
+          'Google Sign-In is disabled in Firebase. Please enable Google provider under Firebase Console -> Authentication -> Sign-in method.'
+        );
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('Sign-in popup was blocked by your browser. Please allow popups for this site and try again.');
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setError('Sign-in window was closed before completing authentication.');
+      } else {
+        setError(err.message || 'Google sign in failed. Please try again.');
+      }
       throw err;
     }
   };

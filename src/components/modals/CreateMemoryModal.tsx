@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getPeople, createMemory, updateMemory } from '../../services/firestore';
-import { uploadToCloudinary } from '../../services/cloudinary';
+import { uploadToCloudinary, validateImageFile } from '../../services/cloudinary';
 import { VoiceRecorder } from '../media/VoiceRecorder';
 import { Person, Memory, MediaItem, VoiceNote, MoodType } from '../../types';
 
@@ -89,6 +89,14 @@ export const CreateMemoryModal: React.FC<CreateMemoryModalProps> = ({
       const newMediaItems: MediaItem[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        if (file.type.startsWith('image/')) {
+          const validation = validateImageFile(file);
+          if (!validation.valid) {
+            setFormError(validation.error || 'Invalid image file.');
+            setUploading(false);
+            return;
+          }
+        }
         const resType = file.type.startsWith('video') ? 'video' : 'image';
         const item = await uploadToCloudinary(file, resType, (percent) => {
           setUploadProgress(percent);
@@ -97,7 +105,10 @@ export const CreateMemoryModal: React.FC<CreateMemoryModalProps> = ({
       }
       setMediaList((prev) => [...prev, ...newMediaItems]);
     } catch (err: any) {
-      setFormError('Failed to upload media. Please try again.');
+      if (import.meta.env.DEV) {
+        console.error('[CreateMemoryModal] Media upload error:', err);
+      }
+      setFormError("We couldn't upload your media. Please try again.");
     } finally {
       setUploading(false);
     }

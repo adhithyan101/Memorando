@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Upload, User, Heart, Calendar, Palette, Sparkles, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { createPerson, updatePerson } from '../../services/firestore';
-import { uploadToCloudinary } from '../../services/cloudinary';
+import { uploadToCloudinary, validateImageFile } from '../../services/cloudinary';
 import { Person } from '../../types';
 
 interface PersonFormModalProps {
@@ -38,15 +38,36 @@ export const PersonFormModal: React.FC<PersonFormModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // 1. File Validation BEFORE upload
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      setFormError(validation.error || 'Please select a valid image file.');
+      return;
+    }
+
     try {
       setFormError(null);
       setUploading(true);
       setUploadProgress(0);
+      if (import.meta.env.DEV) {
+        console.log('[Memorando] Upload started');
+      }
+
+      // 2. Cloudinary Upload
       const media = await uploadToCloudinary(file, 'image', (percent) => setUploadProgress(percent));
-      setProfilePhotoUrl(media.secureUrl);
+      if (media && media.secureUrl) {
+        setProfilePhotoUrl(media.secureUrl);
+        if (import.meta.env.DEV) {
+          console.log('[Memorando] Profile photo state updated');
+        }
+      } else {
+        throw new Error("Photo upload failed, please try again later.");
+      }
     } catch (err: any) {
-      console.error('Photo upload error:', err);
-      setFormError(err.message || 'Photo upload failed. Please try again.');
+      if (import.meta.env.DEV) {
+        console.error('[PersonFormModal] Photo upload error:', err);
+      }
+      setFormError(err.message || "Photo upload failed, please try again later.");
     } finally {
       setUploading(false);
     }
@@ -61,10 +82,17 @@ export const PersonFormModal: React.FC<PersonFormModalProps> = ({
       return;
     }
 
-    if (!currentUser) return;
+    if (!currentUser) {
+      setFormError('Please sign in again to update your profile photo.');
+      return;
+    }
 
     try {
       setSubmitting(true);
+      if (import.meta.env.DEV) {
+        console.log('[Memorando] Firestore update started');
+      }
+
       if (personToEdit) {
         await updatePerson(personToEdit.id, {
           name: name.trim(),
@@ -86,10 +114,21 @@ export const PersonFormModal: React.FC<PersonFormModalProps> = ({
           profilePhotoUrl: profilePhotoUrl || undefined,
         });
       }
+
+      if (import.meta.env.DEV) {
+        console.log('[Memorando] Firestore update successful');
+      }
       onSuccess();
       onClose();
     } catch (err: any) {
-      setFormError(err.message || 'Failed to save person details.');
+      if (import.meta.env.DEV) {
+        console.error('[PersonFormModal] Firestore save error:', err);
+      }
+      if (profilePhotoUrl && profilePhotoUrl !== personToEdit?.profilePhotoUrl) {
+        setFormError("Photo uploaded, but we couldn't save your profile changes. Please try again.");
+      } else {
+        setFormError(err.message || 'Failed to save person details.');
+      }
     } finally {
       setSubmitting(false);
     }
