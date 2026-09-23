@@ -13,7 +13,29 @@ import {
   GeoPoint
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Person, Memory, MemoryCapsule, FutureLetter, AppNotification, MediaItem, VoiceNote } from '../types';
+import { Person, Memory, MemoryCapsule, FutureLetter, AppNotification, MediaItem, VoiceNote, UserProfile } from '../types';
+
+// ==========================================
+// USER PROFILE SERVICES
+// ==========================================
+
+export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
+  if (!userId) return null;
+  const docRef = doc(db, 'users', userId);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) return null;
+  return { uid: snap.id, ...snap.data() } as UserProfile;
+};
+
+export const updateUserProfile = async (userId: string, data: Partial<UserProfile>): Promise<void> => {
+  if (!userId) return;
+  const docRef = doc(db, 'users', userId);
+  const payload = sanitizeFirestorePayload({
+    ...data,
+    updatedAt: new Date().toISOString(),
+  });
+  await updateDoc(docRef, payload);
+};
 
 // ==========================================
 // PEOPLE SERVICES

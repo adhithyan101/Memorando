@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../services/firebase';
+import { updateUserProfile } from '../services/firestore';
 import { UserProfile } from '../types';
 
 interface AuthContextType {
@@ -22,6 +23,7 @@ interface AuthContextType {
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string, name: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
+  updateUserProfileData: (data: Partial<UserProfile>) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   resendVerification: () => Promise<void>;
   logout: () => Promise<void>;
@@ -135,6 +137,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateUserProfileData = async (data: Partial<UserProfile>) => {
+    if (!currentUser) return;
+    setError(null);
+    try {
+      await updateUserProfile(currentUser.uid, data);
+      setUserProfile((prev) => (prev ? { ...prev, ...data } : null));
+      if (data.displayName !== undefined || data.photoURL !== undefined) {
+        await updateProfile(currentUser, {
+          ...(data.displayName !== undefined ? { displayName: data.displayName } : {}),
+          ...(data.photoURL !== undefined ? { photoURL: data.photoURL } : {}),
+        }).catch((err) => console.warn('Firebase Auth updateProfile warning:', err));
+      }
+    } catch (err: any) {
+      if (import.meta.env.DEV) {
+        console.error('[AuthContext] updateUserProfileData error:', err);
+      }
+      setError(err.message || 'Failed to update profile.');
+      throw err;
+    }
+  };
+
   const resetPassword = async (email: string) => {
     setError(null);
     try {
@@ -178,6 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signInWithEmail,
       signUpWithEmail,
       signInWithGoogle,
+      updateUserProfileData,
       resetPassword,
       resendVerification,
       logout,

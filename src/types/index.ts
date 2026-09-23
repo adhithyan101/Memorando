@@ -5,6 +5,9 @@ export interface UserProfile {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+  bio?: string;
+  username?: string;
+  birthday?: string;
   createdAt: string;
   updatedAt: string;
   themePreference?: 'light' | 'dark' | 'system';
